@@ -1,0 +1,46 @@
+# Dependencias
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+dist/
+build/
+
+# Prisma - cliente generado (se regenera con prisma generate)
+src/generated/prisma/
+
+# Entorno y secretos
+.env
+.env*.local
+.env.production
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Tests
+coverage/
+*.spec.ts.snap
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# TypeScript
+*.tsbuildinfo
+
+# Docker
+.docker/
+
+# NestJS
+.tmp/
