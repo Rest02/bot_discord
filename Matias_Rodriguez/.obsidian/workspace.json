@@ -6,7 +6,7 @@
       {
         "id": "18414a73835652c0",
         "type": "tabs",
-        "dimension": 79.50507614213198,
+        "dimension": 45.81218274111675,
         "children": [
           {
             "id": "84bf66497347fc40",
@@ -28,7 +28,7 @@
       {
         "id": "811781fad5a8b0d7",
         "type": "tabs",
-        "dimension": 20.49492385786802,
+        "dimension": 54.18781725888325,
         "children": [
           {
             "id": "7a99c1b70529505f",
@@ -59,7 +59,7 @@
                   "repelStrength": 10,
                   "linkStrength": 1,
                   "linkDistance": 250,
-                  "scale": 1.9655560456566714,
+                  "scale": 0.9999999999999988,
                   "close": true
                 }
               },
@@ -125,7 +125,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 481.5
   },
   "right": {
     "id": "1b89a90de078bad6",
@@ -232,14 +232,16 @@
   },
   "active": "84bf66497347fc40",
   "lastOpenFiles": [
-    "00-analisis-estructura/Implementar ActivityModule.md",
-    "00-analisis-estructura/Setup Inicial.md",
-    "00-analisis-estructura/Prisma.md",
-    "00-analisis-estructura/Arquitectura Bot Discord.md",
     "00-analisis-estructura/Registrar Bot en Discord Portal.md",
+    "00-analisis-estructura/Prisma.md",
     "00-analisis-estructura/PostgreSQL.md",
     "00-analisis-estructura/NestJS.md",
+    "00-analisis-estructura/Implementacion ActivityModule.md",
+    "00-analisis-estructura/Implementar ActivityModule.md",
     "00-analisis-estructura/Implementar ModerationModule.md",
+    "00-analisis-estructura/Implementacion ModerationModule.md",
+    "00-analisis-estructura/Setup Inicial.md",
+    "00-analisis-estructura/Arquitectura Bot Discord.md",
     "00-analisis-estructura/Dockerizar y desplegar.md",
     "00-analisis-estructura/Docker.md",
     "00-analisis-estructura/Deploy en Render.md",

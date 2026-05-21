@@ -103,6 +103,19 @@ import { ScheduleModule } from '@nestjs/schedule';
 export class AppModule {}
 ```
 
+> [!warning] El proyecto usa `"type": "module"` en package.json y `moduleResolution: "nodenext"` en tsconfig. Todos los `import` relativos deben incluir la extensión `.js` (ej: `'./activity.service.js'`). Esto es necesario para compatibilidad con Prisma v7 que requiere ESM.
+
+## 6. Ejecutar el Bot
+
+```bash
+# Build + run (ESM)
+npm run build
+node dist/src/main.js
+
+# O en desarrollo con hot-reload
+npx tsx watch src/main.ts
+```
+
 ## Referencias
 
 - [[NestJS]] — estructura de módulos

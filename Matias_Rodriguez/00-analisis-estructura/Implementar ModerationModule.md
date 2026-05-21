@@ -112,32 +112,28 @@ export class ModerationService {
 
 ```typescript
 @Injectable()
-export class ModerationCommand {
+export class ModerationCommand implements OnModuleInit {
   @Inject(DISCORD_CLIENT) private readonly client: Client;
 
-  register(): void {
-    const command = new SlashCommandBuilder()
-      .setName('modconfig')
-      .setDescription('Configurar moderación automática')
-      .addIntegerOption(opt =>
-        opt.setName('dias')
-          .setDescription('Días de inactividad antes de moderar')
-          .setRequired(true)
-          .setMinValue(1)
-          .setMaxValue(30))
-      .addStringOption(opt =>
-        opt.setName('accion')
-          .setDescription('Acción a ejecutar')
-          .addChoices(
-            { name: 'Kick', value: 'kick' },
-            { name: 'Ban', value: 'ban' },
-          ))
-      .addBooleanOption(opt =>
-        opt.setName('habilitar')
-          .setDescription('Activar o desactivar la moderación automática'));
-
-    // registro del comando...
+  async onModuleInit(): Promise<void> {
+    await this.registerSlashCommands();
   }
+
+  private register(): void {
+    // ... command definition ...
+  }
+}
+```
+
+### Verificación de Permisos
+
+```typescript
+if (!interaction.memberPermissions?.has('Administrator')) {
+  await interaction.reply({
+    content: '❌ Solo los administradores pueden usar este comando.',
+    ephemeral: true,
+  });
+  return;
 }
 ```
 
@@ -145,11 +141,12 @@ export class ModerationCommand {
 
 | Campo | Tipo | Default | Descripción |
 |-------|------|---------|-------------|
-| `inactivityDays` | Int | 3 | Días sin actividad antes de actuar |
+| `inactivityDays` | Int | 3 | Días antes de actuar |
 | `action` | String | `kick` | `kick` o `ban` |
-| `excludeAdmins` | Bool | `true` | Excluir admins del barrido |
-| `excludeBots` | Bool | `true` | Excluir otros bots |
-| `enabled` | Bool | `false` | Activar/desactivar el sistema |
+| `excludeAdmins` | Bool | `true` | Excluir admins |
+| `excludeBots` | Bool | `true` | Excluir bots |
+| `excludeRoles` | String[] | `[]` | IDs de roles excluidos |
+| `enabled` | Bool | `false` | Activar/desactivar sistema |
 
 ## Referencias
 

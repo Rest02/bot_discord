@@ -118,7 +118,28 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
    ```
 4. Se definió `output` del generador en `src/generated/prisma`
 
-### ⚠️ Issue #3: Puerto PostgreSQL conflictivo
+### ⚠️ Issue #3: ESM + tsconfig — error de resolución de módulos
+
+**Problema:** Prisma v7 genera cliente ESM con `import.meta.url`, incompatible con `moduleResolution: "bundler"`. El build inicial fallaba con errores de módulo no encontrado al ejecutar desde `dist/`.
+
+**Solución:**
+1. Se cambió `tsconfig.json`:
+   ```json
+   {
+     "module": "nodenext",
+     "moduleResolution": "nodenext"
+   }
+   ```
+2. Se agregaron extensiones `.js` a **todos** los imports relativos del `src/`:
+   ```typescript
+   // Antes
+   import { ActivityService } from './activity.service';
+   // Después
+   import { ActivityService } from './activity.service.js';
+   ```
+3. Se ejecuta el bot compilado con `node dist/src/main.js` (ESM nativo)
+
+### ⚠️ Issue #4: Puerto PostgreSQL conflictivo
 
 **Problema:** Había un **PostgreSQL nativo de Windows** (PostgreSQL 18) ocupando el puerto `5432`, impidiendo la conexión al contenedor Docker.
 
@@ -174,29 +195,42 @@ npx prisma migrate deploy
 # Abrir Prisma Studio
 npx prisma studio --config prisma.config.ts
 
-# Build del proyecto
+# Build + run (ESM compilado)
 npm run build
+node dist/src/main.js
 
-# Iniciar en desarrollo
+# Iniciar en desarrollo (tsx hot-reload)
 npm run start:dev
+
+# O directamente con tsx
+npx tsx src/main.ts
 ```
 
 ## Estado Actual de la DB
 
-La migración inicial `20260520231023_init` fue aplicada exitosamente. La base de datos tiene las 5 tablas listas:
+Las migraciones fueron aplicadas exitosamente:
+
+| Migración | Descripción |
+|-----------|-------------|
+| `20260520231023_init` | Schema inicial con 5 modelos |
+| `20260521000423_fix_relations` | Fix FK relaciones + `excludeRoles` |
+| `20260521004259_add_username` | Campo `username` en `ActivityEvent` |
+
+La base de datos tiene las 5 tablas listas:
 
 - `Guild` — servidores de Discord
 - `Member` — miembros con tracking de actividad
-- `ActivityEvent` — eventos individuales de actividad
+- `ActivityEvent` — eventos individuales de actividad (solo voz)
 - `GuildConfig` — configuración por servidor
 - `ModerationLog` — historial de acciones de moderación
 
 ## Próximos Pasos
 
-1. [[Implementar ActivityModule]] — rastrear actividad de usuarios
+1. [[Implementar ActivityModule]] — rastrear actividad de voz
 2. [[Implementar ModerationModule]] — ejecutar kicks/bans automáticos
 3. Registrar el bot en [[Registrar Bot en Discord Portal|Discord Portal]]
 4. Configurar [[Configurar NestJS + Prisma#5. Configurar Módulo Schedule|Slash Commands]]
+5. [[Dockerizar y desplegar]] — build multi-stage + deploy
 
 ---
 

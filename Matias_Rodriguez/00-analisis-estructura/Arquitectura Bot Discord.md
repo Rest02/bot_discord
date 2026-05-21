@@ -16,7 +16,7 @@ cssclasses:
 # Arquitectura del Bot de Discord
 
 > [!info] Propósito
-> Bot de moderación que monitorea actividad de usuarios y expulsa/banea automáticamente a aquellos sin actividad en los últimos 3 días.
+> Bot de moderación que monitorea actividad de voz y expulsa/banea automáticamente a aquellos sin actividad en los últimos 3 días.
 
 ## Stack Tecnológico y Patrones
 
@@ -66,13 +66,12 @@ graph TB
 
     subgraph Bot[NestJS Application]
         Client[Discord Client<br/>discord.js]
-        Handler[Event Handlers<br/>messageCreate, voiceStateUpdate]
-        CMD[Command Bus<br/>Slash Commands]
+        AG[ActivityGateway<br/>voiceStateUpdate]
+        CMD[Slash Command<br/>modconfig]
         
         subgraph Services[Service Layer]
             AS[ActivityService]
             MS[ModerationService]
-            GS[GuildService]
         end
 
         subgraph Jobs[Scheduled Tasks]
@@ -81,13 +80,6 @@ graph TB
 
         subgraph DB[Data Layer]
             PR[Prisma Service]
-            Q[Queue Manager]
-        end
-
-        subgraph Infra[Infrastructure]
-            LOG[Structured Logger]
-            RL[Rate Limiter]
-            HEALTH[Health Check]
         end
     end
 
@@ -97,36 +89,27 @@ graph TB
 
     API <-->|REST| Client
     GW <-->|WebSocket| Client
-    Client --> Handler
+    Client --> AG
     Client --> CMD
-    Handler --> AS
-    CMD --> AS
+    AG --> AS
+    CMD --> MS
     AS --> MS
-    MS --> GS
-    AS --> PR
     CRON --> AS
+    AS --> PR
+    MS --> PR
     PR --> PG
-    MS --> RL
-    RL -->|Backoff| API
-
-    classDef discord fill:#5865F2,color:#fff
-    classDef bot fill:#1a1a2e,color:#fff
-    classDef service fill:#16213e,color:#fff
-    classDef storage fill:#0f3460,color:#fff
-    class API,GW discord
-    class Client,Handler,CMD bot
-    class AS,MS,GS service
-    class PG storage
 ```
 
 ### Flujo de Actividad
 
-1. **Usuario envía mensaje** → Discord Gateway emite `messageCreate`
-2. **Handler** recibe el evento, extrae `userId`, `guildId`, `timestamp`
-3. **ActivityService** registra o actualiza `lastActivityAt` en PostgreSQL
-4. **Cada 24h**, `CheckActivityJob` ejecuta query: miembros con `lastActivityAt < NOW() - INTERVAL '3 days'`
-5. **ModerationService** ejecuta `kick()` o `ban()` contra Discord API
-6. **Resultado** se persiste en tabla `ModerationLog`
+1. **Usuario se conecta a un canal de voz** → Discord Gateway emite `voiceStateUpdate`
+2. **ActivityGateway** guarda `{ joinTime }` en un Map en memoria (sesión iniciada)
+3. **Usuario se desconecta** → se calcula `(now - joinTime)` en minutos
+4. **Si ≥ 30 minutos** → `ActivityService.recordActivity()` actualiza `lastActivityAt` en PostgreSQL
+5. **Si < 30 minutos** → se ignora, no reinicia el contador
+6. **Cada 24h**, `CheckActivityJob` ejecuta query: miembros con `lastActivityAt < NOW() - INTERVAL '3 days'`
+7. **ModerationService** ejecuta `kick()` o `ban()` contra Discord API
+8. **Resultado** se persiste en tabla `ModerationLog`
 
 ## Modelo de Datos Principal
 
@@ -153,11 +136,23 @@ erDiagram
 
     ActivityEvent {
         string id PK
-        string memberId FK
+        string userId
+        string username
         string guildId FK
         string eventType
         jsonb metadata
         datetime timestamp
+    }
+
+    GuildConfig {
+        string id PK
+        string guildId FK
+        int inactivityDays
+        string action
+        boolean excludeAdmins
+        boolean excludeBots
+        string[] excludeRoles
+        boolean enabled
     }
 
     ModerationLog {
@@ -168,23 +163,14 @@ erDiagram
         string reason
         string moderatorId
         boolean success
+        string errorMessage
         datetime executedAt
-    }
-
-    GuildConfig {
-        string id PK
-        string guildId FK
-        int inactivityDays
-        string action
-        boolean excludeAdmins
-        boolean excludeBots
-        boolean enabled
     }
 
     Guild ||--o{ Member : contains
     Guild ||--o| GuildConfig : configures
-    Member ||--o{ ActivityEvent : generates
-    Member ||--o{ ModerationLog : targets
+    Guild ||--o{ ActivityEvent : logs
+    Guild ||--o{ ModerationLog : records
 ```
 
 ### Schema Prisma
@@ -197,9 +183,10 @@ model Guild {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members   Member[]
-  config    GuildConfig?
-  logs      ModerationLog[]
+  members Member[]
+  events  ActivityEvent[]
+  config  GuildConfig?
+  logs    ModerationLog[]
 }
 
 model Member {
@@ -212,9 +199,7 @@ model Member {
   lastActivityAt DateTime
   createdAt      DateTime @default(now())
 
-  guild          Guild           @relation(fields: [guildId], references: [id])
-  events         ActivityEvent[]
-  moderationLogs ModerationLog[]
+  guild Guild @relation(fields: [guildId], references: [id])
 
   @@unique([guildId, userId])
   @@index([guildId, lastActivityAt])
@@ -222,26 +207,27 @@ model Member {
 
 model ActivityEvent {
   id        String   @id @default(cuid())
-  memberId  String
+  userId    String
+  username  String?
   guildId   String
-  eventType String   // message, voice, reaction, presence
+  eventType String
   metadata  Json?    @default("{}")
   timestamp DateTime @default(now())
 
-  member Member @relation(fields: [memberId], references: [id])
-  guild  Guild  @relation(fields: [guildId], references: [id])
+  guild Guild @relation(fields: [guildId], references: [id])
 
-  @@index([memberId, timestamp])
+  @@index([userId, timestamp])
 }
 
 model GuildConfig {
-  id             String  @id @default(cuid())
-  guildId        String  @unique
-  inactivityDays Int     @default(3)
-  action         String  @default("kick") // kick | ban
-  excludeAdmins  Boolean @default(true)
-  excludeBots    Boolean @default(true)
-  enabled        Boolean @default(false)
+  id             String   @id @default(cuid())
+  guildId        String   @unique
+  inactivityDays Int      @default(3)
+  action         String   @default("kick")
+  excludeAdmins  Boolean  @default(true)
+  excludeBots    Boolean  @default(true)
+  excludeRoles   String[] @default([])
+  enabled        Boolean  @default(false)
 
   guild Guild @relation(fields: [guildId], references: [id])
 }
@@ -250,15 +236,14 @@ model ModerationLog {
   id           String   @id @default(cuid())
   guildId      String
   targetUserId String
-  action       String   // kick | ban
+  action       String
   reason       String
-  moderatorId  String   // "auto" for automated
+  moderatorId  String
   success      Boolean
   errorMessage String?
   executedAt   DateTime @default(now())
 
-  guild  Guild  @relation(fields: [guildId], references: [id])
-  member Member @relation(fields: [targetUserId], references: [id])
+  guild Guild @relation(fields: [guildId], references: [id])
 }
 ```
 
@@ -381,8 +366,6 @@ El SDK `discord.js` maneja reconexión automática con backoff. Configuración r
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.GuildMembers,
   ],

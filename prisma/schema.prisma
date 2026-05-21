@@ -30,9 +30,7 @@ model Member {
   lastActivityAt DateTime
   createdAt      DateTime @default(now())
 
-  guild          Guild           @relation(fields: [guildId], references: [id])
-  events         ActivityEvent[]
-  moderationLogs ModerationLog[]
+  guild Guild @relation(fields: [guildId], references: [id])
 
   @@unique([guildId, userId])
   @@index([guildId, lastActivityAt])
@@ -40,26 +38,27 @@ model Member {
 
 model ActivityEvent {
   id        String   @id @default(cuid())
-  memberId  String
+  userId    String
+  username  String?
   guildId   String
   eventType String
   metadata  Json?    @default("{}")
   timestamp DateTime @default(now())
 
-  member Member @relation(fields: [memberId], references: [id])
-  guild  Guild  @relation(fields: [guildId], references: [id])
+  guild Guild @relation(fields: [guildId], references: [id])
 
-  @@index([memberId, timestamp])
+  @@index([userId, timestamp])
 }
 
 model GuildConfig {
-  id             String  @id @default(cuid())
-  guildId        String  @unique
-  inactivityDays Int     @default(3)
-  action         String  @default("kick")
-  excludeAdmins  Boolean @default(true)
-  excludeBots    Boolean @default(true)
-  enabled        Boolean @default(false)
+  id             String   @id @default(cuid())
+  guildId        String   @unique
+  inactivityDays Int      @default(3)
+  action         String   @default("kick")
+  excludeAdmins  Boolean  @default(true)
+  excludeBots    Boolean  @default(true)
+  excludeRoles   String[] @default([])
+  enabled        Boolean  @default(false)
 
   guild Guild @relation(fields: [guildId], references: [id])
 }
@@ -75,6 +74,5 @@ model ModerationLog {
   errorMessage String?
   executedAt   DateTime @default(now())
 
-  guild  Guild  @relation(fields: [guildId], references: [id])
-  member Member @relation(fields: [targetUserId], references: [id])
+  guild Guild @relation(fields: [guildId], references: [id])
 }
