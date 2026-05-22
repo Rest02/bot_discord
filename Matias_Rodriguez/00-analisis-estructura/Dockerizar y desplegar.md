@@ -24,12 +24,15 @@ Guía para empaquetar el bot en Docker y desplegarlo en producción.
 ## Build de la Imagen
 
 ```bash
-# Construir imagen
+# Construir imagen (producción)
 docker build -t discord-mod-bot:latest .
 
 # Verificar que existe
 docker images | grep discord-mod-bot
 ```
+
+> [!note] Imagen base
+> Se usa `node:20-slim` (Debian) en vez de `node:20-alpine`. Alpine usa musl libc que tiene problemas de resolución DNS con Docker Desktop. `slim` usa glibc, compatible y estable.
 
 ## Despliegue con Docker Compose
 
@@ -42,35 +45,28 @@ cd /opt/discord-bot
 cp .env.example .env
 nano .env
 
-# Levantar servicios
-docker compose up -d
+# Asegurar include en tsconfig (ver Docker.md)
+# "include": ["src/**/*"] en tsconfig.json y tsconfig.build.json
+
+# Levantar servicios (producción, sin override)
+docker compose -f docker-compose.yml up -d --build
 
 # Verificar estado
-docker compose ps
-docker compose logs -f bot
+docker compose -f docker-compose.yml ps
+docker compose -f docker-compose.yml logs -f app
 
 # Ver health check
 curl http://localhost:3000/health
 ```
 
-## Opciones de Hosting
+## Estructura final de archivos
 
-### VPS (DigitalOcean, Linode, AWS EC2)
-
-- **Pros**: control total, precio fijo (~$6/mes)
-- **Contras**: requiere mantenimiento del SO
-- **Recomendación**: instancia 1GB RAM, 1 vCPU
-
-### Railway / Render
-
-- **Pros**: zero-ops, despliegue desde GitHub, HTTPS incluido
-- **Contras**: cold starts, límites de uso gratis
-- **URL de health check pública** para monitorización externa
-
-### Servidor doméstico
-
-- **Pros**: gratuito si ya tienes el hardware
-- **Contras**: depende de tu conexión, no 24/7 garantizado
+| Archivo | Propósito |
+|---------|-----------|
+| `Dockerfile` | Multi-stage: build con tsc + runtime con node |
+| `docker-compose.yml` | Servicios postgres + app (producción) |
+| `docker-compose.override.yml` | Dev: hot-reload con `nest start --watch` |
+| `.env` | Credenciales (DB_HOST apunta a localhost) |
 
 ## Actualización del Bot
 
@@ -78,31 +74,31 @@ curl http://localhost:3000/health
 # Pull latest code
 git pull
 
-# Rebuild y restart
-docker compose up --build -d
+# Rebuild y restart (producción)
+docker compose -f docker-compose.yml up --build -d
 
 # Revisar logs post-deploy
-docker compose logs -f --tail=50 bot
+docker compose -f docker-compose.yml logs -f --tail=50 app
 ```
 
 ## Monitoreo en Producción
 
 ```bash
 # Logs en tiempo real
-docker compose logs -f bot
+docker compose -f docker-compose.yml logs -f app
 
 # Estado de contenedores
-docker compose ps
+docker compose -f docker-compose.yml ps
 
 # Recursos
-docker stats discord-bot-bot-1
+docker stats discord-bot-server
 
 # Backup DB
-docker compose exec postgres pg_dump -U ${DB_USER} discord_bot > backup_$(date +%Y%m%d).sql
+docker compose -f docker-compose.yml exec postgres pg_dump -U ${DB_USER} discord_bot > backup_$(date +%Y%m%d).sql
 ```
 
 ## Referencias
 
-- [[Docker]] — configuración de contenedores
+- [[Docker]] — configuración detallada de contenedores
 - [[Arquitectura Bot Discord#Infraestructura y Despliegue]]
 - [[Registrar Bot en Discord Portal]]
