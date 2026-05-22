@@ -6,7 +6,7 @@
       {
         "id": "18414a73835652c0",
         "type": "tabs",
-        "dimension": 45.81218274111675,
+        "dimension": 57.57575757575758,
         "children": [
           {
             "id": "84bf66497347fc40",
@@ -14,12 +14,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "00-analisis-estructura/Setup Inicial.md",
+                "file": "00-analisis-estructura/Guia de Uso - Suscripciones Compartidas.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Setup Inicial"
+              "title": "Guia de Uso - Suscripciones Compartidas"
             },
             "group": "169244584e232a04"
           }
@@ -28,7 +28,7 @@
       {
         "id": "811781fad5a8b0d7",
         "type": "tabs",
-        "dimension": 54.18781725888325,
+        "dimension": 42.42424242424242,
         "children": [
           {
             "id": "7a99c1b70529505f",
@@ -36,7 +36,7 @@
             "state": {
               "type": "localgraph",
               "state": {
-                "file": "00-analisis-estructura/Setup Inicial.md",
+                "file": "00-analisis-estructura/Guia de Uso - Suscripciones Compartidas.md",
                 "options": {
                   "collapse-filter": true,
                   "search": "",
@@ -59,12 +59,12 @@
                   "repelStrength": 10,
                   "linkStrength": 1,
                   "linkDistance": 250,
-                  "scale": 0.9999999999999988,
+                  "scale": 1.971002479123954,
                   "close": true
                 }
               },
               "icon": "lucide-git-fork",
-              "title": "Gráfico de Setup Inicial"
+              "title": "Gráfico de Guia de Uso - Suscripciones Compartidas"
             },
             "group": "169244584e232a04"
           }
@@ -232,16 +232,18 @@
   },
   "active": "84bf66497347fc40",
   "lastOpenFiles": [
-    "00-analisis-estructura/Registrar Bot en Discord Portal.md",
+    "00-analisis-estructura/Implementacion ModerationModule.md",
+    "00-analisis-estructura/Implementacion SuscripcionModule.md",
+    "00-analisis-estructura/Guia de Uso - Suscripciones Compartidas.md",
+    "00-analisis-estructura/Arquitectura Bot Discord.md",
     "00-analisis-estructura/Prisma.md",
     "00-analisis-estructura/PostgreSQL.md",
     "00-analisis-estructura/NestJS.md",
-    "00-analisis-estructura/Implementacion ActivityModule.md",
-    "00-analisis-estructura/Implementar ActivityModule.md",
     "00-analisis-estructura/Implementar ModerationModule.md",
-    "00-analisis-estructura/Implementacion ModerationModule.md",
+    "00-analisis-estructura/Implementar ActivityModule.md",
+    "00-analisis-estructura/Implementacion ActivityModule.md",
+    "00-analisis-estructura/Registrar Bot en Discord Portal.md",
     "00-analisis-estructura/Setup Inicial.md",
-    "00-analisis-estructura/Arquitectura Bot Discord.md",
     "00-analisis-estructura/Dockerizar y desplegar.md",
     "00-analisis-estructura/Docker.md",
     "00-analisis-estructura/Deploy en Render.md",
@@ -256,7 +258,6 @@
     "NestJS.md",
     "Implementar ModerationModule.md",
     "Implementar ActivityModule.md",
-    "Dockerizar y desplegar.md",
-    "Bienvenido.md"
+    "Dockerizar y desplegar.md"
   ]
 }

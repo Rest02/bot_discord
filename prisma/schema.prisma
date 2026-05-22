@@ -76,3 +76,40 @@ model ModerationLog {
 
   guild Guild @relation(fields: [guildId], references: [id])
 }
+
+model Suscripcion {
+  id                Int      @id @default(autoincrement())
+  nombre            String   @unique
+  montoTotal        Decimal
+  diaCobro          Int
+  limiteUsuarios    Int
+  adminDiscordId    String
+  canalRecordatorio String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  miembros MiembroSuscripcion[]
+}
+
+model MiembroSuscripcion {
+  id               Int      @id @default(autoincrement())
+  suscripcionId    Int
+  usuarioDiscordId String
+  mesesAFavor      Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  suscripcion Suscripcion   @relation(fields: [suscripcionId], references: [id], onDelete: Cascade)
+  historial   HistorialPago[]
+
+  @@unique([suscripcionId, usuarioDiscordId])
+}
+
+model HistorialPago {
+  id                   Int      @id @default(autoincrement())
+  miembroSuscripcionId Int
+  montoPagado          Decimal
+  mesesCubiertos       Int
+  fechaPago            DateTime @default(now())
+
+  miembro MiembroSuscripcion @relation(fields: [miembroSuscripcionId], references: [id], onDelete: Cascade)
+}

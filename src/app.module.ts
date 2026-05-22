@@ -4,6 +4,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { DiscordModule } from './discord/discord.module.js';
 import { ActivityModule } from './activity/activity.module.js';
 import { ModerationModule } from './moderation/moderation.module.js';
+import { SuscripcionModule } from './suscripcion/suscripcion.module.js';
 import { HealthController } from './health.controller.js';
 
 @Module({
@@ -13,6 +14,7 @@ import { HealthController } from './health.controller.js';
     DiscordModule,
     ActivityModule,
     ModerationModule,
+    SuscripcionModule,
   ],
   controllers: [HealthController],
 })

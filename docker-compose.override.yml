@@ -1,6 +1,6 @@
 services:
   app:
-    command: sh -c "npx prisma generate && npx nest start --watch"
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && npx nest start --watch"
     volumes:
       - .:/app
       - /app/node_modules

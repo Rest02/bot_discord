@@ -16,7 +16,7 @@ cssclasses:
 # Arquitectura del Bot de Discord
 
 > [!info] Propósito
-> Bot de moderación que monitorea actividad de voz y expulsa/banea automáticamente a aquellos sin actividad en los últimos 3 días.
+> Bot de moderación que monitorea actividad de voz y expulsa/banea automáticamente a aquellos sin actividad en los últimos 3 días. Además, gestiona suscripciones compartidas entre miembros de la comunidad (pagos, historial, recordatorios).
 
 ## Stack Tecnológico y Patrones
 
@@ -51,7 +51,7 @@ cssclasses:
 └─────────────────────────────────────────────────────┘
 ```
 
-Cada módulo de NestJS encapsula su dominio: `ActivityModule`, `ModerationModule`, `GuildModule`, `SchedulingModule`. La inyección de dependencias mantiene bajo acoplamiento.
+Cada módulo de NestJS encapsula su dominio: `ActivityModule`, `ModerationModule`, `SuscripcionModule`. La inyección de dependencias mantiene bajo acoplamiento.
 
 > [!tip] NestJS soporta nativamente `@Cron` de `@nestjs/schedule` para la tarea periódica de revisión de actividad.
 
@@ -91,16 +91,21 @@ graph TB
     GW <-->|WebSocket| Client
     Client --> AG
     Client --> CMD
+    Client --> SC[SuscripcionCommand]
+    SC --> SS[SuscripcionService]
+    SJ[SuscripcionJob] --> SS
     AG --> AS
     CMD --> MS
     AS --> MS
     CRON --> AS
     AS --> PR
     MS --> PR
+    SS --> PR
+    SJ --> PR
     PR --> PG
 ```
 
-### Flujo de Actividad
+### Flujo de Actividad (Moderación)
 
 1. **Usuario se conecta a un canal de voz** → Discord Gateway emite `voiceStateUpdate`
 2. **ActivityGateway** guarda `{ joinTime }` en un Map en memoria (sesión iniciada)
@@ -110,6 +115,15 @@ graph TB
 6. **Cada 24h**, `CheckActivityJob` ejecuta query: miembros con `lastActivityAt < NOW() - INTERVAL '3 days'`
 7. **ModerationService** ejecuta `kick()` o `ban()` contra Discord API
 8. **Resultado** se persiste en tabla `ModerationLog`
+
+### Flujo de Suscripciones Compartidas
+
+1. **Admin crea suscripción** → `/suscripcion crear` registra el servicio en PostgreSQL
+2. **Usuarios se unen** → `/suscripcion unirse` los agrega como miembros (respetando cupo)
+3. **Admin registra pagos** → `/pagar` crea `HistorialPago` y suma `mesesAFavor` al miembro
+4. **Cada mes (cron)** → el día posterior al `diaCobro`, se descuenta 1 mes a quienes tienen saldo
+5. **3 días antes del cobro (cron)** → se envía recordatorio al canal tagging a pendientes
+6. **Usuarios consultan estado** → `/suscripcion estado` y `/suscripcion historial`
 
 ## Modelo de Datos Principal
 
@@ -171,6 +185,9 @@ erDiagram
     Guild ||--o| GuildConfig : configures
     Guild ||--o{ ActivityEvent : logs
     Guild ||--o{ ModerationLog : records
+
+    Suscripcion ||--o{ MiembroSuscripcion : contiene
+    MiembroSuscripcion ||--o{ HistorialPago : registra
 ```
 
 ### Schema Prisma
@@ -244,6 +261,39 @@ model ModerationLog {
   executedAt   DateTime @default(now())
 
   guild Guild @relation(fields: [guildId], references: [id])
+}
+
+model Suscripcion {
+  id                Int      @id @default(autoincrement())
+  nombre            String   @unique
+  montoTotal        Decimal
+  diaCobro          Int
+  limiteUsuarios    Int
+  adminDiscordId    String
+  canalRecordatorio String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  miembros          MiembroSuscripcion[]
+}
+
+model MiembroSuscripcion {
+  id               Int      @id @default(autoincrement())
+  suscripcionId    Int
+  usuarioDiscordId String
+  mesesAFavor      Int      @default(0)
+  createdAt        DateTime @default(now())
+  suscripcion      Suscripcion   @relation(fields: [suscripcionId], references: [id], onDelete: Cascade)
+  historial        HistorialPago[]
+  @@unique([suscripcionId, usuarioDiscordId])
+}
+
+model HistorialPago {
+  id                   Int      @id @default(autoincrement())
+  miembroSuscripcionId Int
+  montoPagado          Decimal
+  mesesCubiertos       Int
+  fechaPago            DateTime @default(now())
+  miembro              MiembroSuscripcion @relation(fields: [miembroSuscripcionId], references: [id], onDelete: Cascade)
 }
 ```
 
@@ -424,9 +474,11 @@ export class HealthController {
 
 ---
 
-> [!abstract] Próximos Pasos
+> [!abstract] Módulos Implementados
 > 1. [[Registrar Bot en Discord Portal]]
 > 2. [[Configurar NestJS + Prisma]]
 > 3. [[Implementar ActivityModule]]
 > 4. [[Implementar ModerationModule]]
-> 5. [[Dockerizar y desplegar]]
+> 5. [[Implementacion SuscripcionModule]] — ⭐ Nuevo
+> 6. [[Guia de Uso - Suscripciones Compartidas]] — Guía para usuarios
+> 7. [[Dockerizar y desplegar]]
