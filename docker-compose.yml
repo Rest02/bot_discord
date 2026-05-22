@@ -16,5 +16,22 @@ services:
       timeout: 5s
       retries: 5
 
+  app:
+    build: .
+    container_name: discord-bot-server
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    env_file: .env
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DATABASE_URL=postgresql://discord_bot:changeme@postgres:5432/discord_bot?schema=public
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:
