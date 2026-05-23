@@ -28,7 +28,7 @@ services:
       - DB_PORT=5432
       - DATABASE_URL=postgresql://discord_bot:changeme@postgres:5432/discord_bot?schema=public
     ports:
-      - "3000:3000"
+      - "3001:3000"
     depends_on:
       postgres:
         condition: service_healthy

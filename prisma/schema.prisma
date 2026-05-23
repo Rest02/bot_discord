@@ -8,16 +8,29 @@ datasource db {
 }
 
 model Guild {
-  id        String   @id
-  name      String
-  settings  Json?    @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String               @id
+  name                String
+  settings            Json?                @default("{}")
+  canalSuscripciones  String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
-  members Member[]
-  events  ActivityEvent[]
-  config  GuildConfig?
-  logs    ModerationLog[]
+  members             Member[]
+  events              ActivityEvent[]
+  config              GuildConfig?
+  logs                ModerationLog[]
+  permisosSuscripcion PermisoSuscripcion[]
+}
+
+model PermisoSuscripcion {
+  id      String @id @default(cuid())
+  guildId String
+  comando String
+  roleId  String
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@unique([guildId, comando, roleId])
 }
 
 model Member {

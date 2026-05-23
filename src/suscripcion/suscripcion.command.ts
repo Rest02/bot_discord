@@ -86,6 +86,61 @@ export class SuscripcionCommand implements OnModuleInit {
           .setName('historial')
           .setDescription('Ver tu historial de pagos en una suscripción')
           .addStringOption((o) => o.setName('nombre').setDescription('Nombre de la suscripción').setRequired(true)),
+      )
+      .addSubcommandGroup((group) =>
+        group.setName('config').setDescription('Configurar el módulo de suscripciones')
+          .addSubcommand((sub) =>
+            sub.setName('canal')
+              .setDescription('Establecer el canal donde se permiten comandos de suscripción')
+              .addChannelOption((o) => o.setName('canal').setDescription('Canal de texto').setRequired(true)),
+          )
+          .addSubcommand((sub) =>
+            sub.setName('canal-reset')
+              .setDescription('Eliminar la restricción de canal'),
+          ),
+      )
+      .addSubcommandGroup((group) =>
+        group.setName('permisos').setDescription('Gestionar permisos por roles')
+          .addSubcommand((sub) =>
+            sub.setName('agregar')
+              .setDescription('Asignar un rol a un comando')
+              .addStringOption((o) =>
+                o.setName('comando').setDescription('Comando').setRequired(true)
+                  .addChoices(
+                    { name: 'crear', value: 'crear' },
+                    { name: 'modificar', value: 'modificar' },
+                    { name: 'unirse', value: 'unirse' },
+                    { name: 'agregar', value: 'agregar' },
+                    { name: 'remover', value: 'remover' },
+                    { name: 'estado', value: 'estado' },
+                    { name: 'historial', value: 'historial' },
+                    { name: 'pagar', value: 'pagar' },
+                  ),
+              )
+              .addRoleOption((o) => o.setName('rol').setDescription('Rol del servidor').setRequired(true)),
+          )
+          .addSubcommand((sub) =>
+            sub.setName('remover')
+              .setDescription('Quitar un rol de un comando')
+              .addStringOption((o) =>
+                o.setName('comando').setDescription('Comando').setRequired(true)
+                  .addChoices(
+                    { name: 'crear', value: 'crear' },
+                    { name: 'modificar', value: 'modificar' },
+                    { name: 'unirse', value: 'unirse' },
+                    { name: 'agregar', value: 'agregar' },
+                    { name: 'remover', value: 'remover' },
+                    { name: 'estado', value: 'estado' },
+                    { name: 'historial', value: 'historial' },
+                    { name: 'pagar', value: 'pagar' },
+                  ),
+              )
+              .addRoleOption((o) => o.setName('rol').setDescription('Rol del servidor').setRequired(true)),
+          )
+          .addSubcommand((sub) =>
+            sub.setName('listar')
+              .setDescription('Ver todos los permisos configurados'),
+          ),
       );
 
     const pagarCommand = new SlashCommandBuilder()
@@ -112,8 +167,11 @@ export class SuscripcionCommand implements OnModuleInit {
 
       try {
         if (interaction.commandName === 'suscripcion') {
+          if (!await this.verificarCanal(interaction)) return;
           await this.handleSuscripcion(interaction);
         } else if (interaction.commandName === 'pagar') {
+          if (!await this.verificarCanal(interaction)) return;
+          if (!await this.verificarPermisoComando(interaction, 'pagar')) return;
           await this.handlePagar(interaction);
         }
       } catch (error) {
@@ -129,17 +187,26 @@ export class SuscripcionCommand implements OnModuleInit {
   }
 
   private async handleSuscripcion(interaction: ChatInputCommandInteraction): Promise<void> {
+    const group = interaction.options.getSubcommandGroup(false);
     const subcommand = interaction.options.getSubcommand();
 
-    const adminCommands = ['crear', 'modificar'];
-    const adminOrOwnerCommands = ['agregar', 'remover'];
-
-    if (adminCommands.includes(subcommand)) {
+    if (group === 'config') {
       if (!interaction.memberPermissions?.has('Administrator')) {
         await interaction.reply({ content: '❌ Solo los administradores del servidor pueden usar este comando.', ephemeral: true });
         return;
       }
+      return this.handleConfig(interaction);
     }
+
+    if (group === 'permisos') {
+      if (!interaction.memberPermissions?.has('Administrator')) {
+        await interaction.reply({ content: '❌ Solo los administradores del servidor pueden usar este comando.', ephemeral: true });
+        return;
+      }
+      return this.handlePermisos(interaction);
+    }
+
+    if (!await this.verificarPermisoComando(interaction, subcommand)) return;
 
     switch (subcommand) {
       case 'crear':
@@ -224,7 +291,7 @@ export class SuscripcionCommand implements OnModuleInit {
       }
     }
 
-    await this.suscripcionService.agregar(nombre, interaction.user.id, usuario.id);
+    await this.suscripcionService.agregar(nombre, usuario.id);
 
     await interaction.editReply({
       content: `✅ Se agregó a **${usuario.tag}** a la suscripción **${nombre}**.`,
@@ -237,7 +304,7 @@ export class SuscripcionCommand implements OnModuleInit {
     const nombre = interaction.options.getString('nombre', true);
     const usuario = interaction.options.getUser('usuario', true);
 
-    await this.suscripcionService.remover(nombre, interaction.user.id, usuario.id);
+    await this.suscripcionService.remover(nombre, usuario.id);
 
     await interaction.editReply({
       content: `✅ Se removió a **${usuario.tag}** de la suscripción **${nombre}**.`,
@@ -310,7 +377,7 @@ export class SuscripcionCommand implements OnModuleInit {
     const usuario = interaction.options.getUser('usuario', true);
     const meses = interaction.options.getInteger('meses', true);
 
-    const { montoPagado } = await this.suscripcionService.pagar(nombreSusc, interaction.user.id, usuario.id, meses);
+    const { montoPagado } = await this.suscripcionService.pagar(nombreSusc, usuario.id, meses);
 
     await interaction.editReply({
       content: [
@@ -319,5 +386,133 @@ export class SuscripcionCommand implements OnModuleInit {
         `**Meses cubiertos:** ${meses}`,
       ].join('\n'),
     });
+  }
+
+  private async handleConfig(interaction: ChatInputCommandInteraction): Promise<void> {
+    const subcommand = interaction.options.getSubcommand();
+    const guildId = interaction.guildId!;
+
+    if (subcommand === 'canal') {
+      await interaction.deferReply({ ephemeral: true });
+      const canal = interaction.options.getChannel('canal', true);
+      await this.suscripcionService.actualizarCanalSuscripciones(guildId, canal.id);
+      await interaction.editReply({
+        content: `✅ Canal de suscripciones configurado a ${canal}.`,
+      });
+    } else if (subcommand === 'canal-reset') {
+      await interaction.deferReply({ ephemeral: true });
+      await this.suscripcionService.actualizarCanalSuscripciones(guildId, null);
+      await interaction.editReply({
+        content: '✅ Restricción de canal eliminada. Los comandos pueden usarse en cualquier canal.',
+      });
+    }
+  }
+
+  private async handlePermisos(interaction: ChatInputCommandInteraction): Promise<void> {
+    const subcommand = interaction.options.getSubcommand();
+    const guildId = interaction.guildId!;
+
+    if (subcommand === 'agregar') {
+      await interaction.deferReply({ ephemeral: true });
+      const comando = interaction.options.getString('comando', true);
+      const rol = interaction.options.getRole('rol', true);
+
+      try {
+        await this.suscripcionService.agregarPermiso(guildId, comando, rol.id);
+        await interaction.editReply({
+          content: `✅ Permiso asignado: \`${comando}\` → ${rol}`,
+        });
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : 'Error desconocido';
+        await interaction.editReply({
+          content: `❌ No se pudo asignar el permiso: ${msg}`,
+        });
+      }
+    } else if (subcommand === 'remover') {
+      await interaction.deferReply({ ephemeral: true });
+      const comando = interaction.options.getString('comando', true);
+      const rol = interaction.options.getRole('rol', true);
+
+      try {
+        await this.suscripcionService.removerPermiso(guildId, comando, rol.id);
+        await interaction.editReply({
+          content: `✅ Permiso removido: \`${comando}\` → ${rol}`,
+        });
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : 'Error desconocido';
+        await interaction.editReply({
+          content: `❌ No se pudo remover el permiso: ${msg}`,
+        });
+      }
+    } else if (subcommand === 'listar') {
+      await interaction.deferReply({ ephemeral: true });
+      const permisos = await this.suscripcionService.listarPermisos(guildId);
+      const guild = interaction.guild;
+
+      if (permisos.length === 0) {
+        await interaction.editReply({
+          content: '📋 No hay permisos configurados. Cualquier usuario puede usar los comandos de suscripción.',
+        });
+        return;
+      }
+
+      const agrupados: Record<string, string[]> = {};
+      for (const p of permisos) {
+        if (!agrupados[p.comando]) agrupados[p.comando] = [];
+        const roleName = guild?.roles.cache.get(p.roleId)?.name ?? 'Rol desconocido';
+        agrupados[p.comando].push(`@${roleName}`);
+      }
+
+      const lineas = Object.entries(agrupados).map(
+        ([comando, roles]) => `**${comando}**: ${roles.join(', ')}`,
+      );
+
+      const embed = new EmbedBuilder()
+        .setTitle('📋 Permisos de Suscripciones')
+        .setColor(0x5865f2)
+        .setDescription(lineas.join('\n'));
+
+      await interaction.editReply({ embeds: [embed] });
+    }
+  }
+
+  private async verificarCanal(interaction: ChatInputCommandInteraction): Promise<boolean> {
+    const guildId = interaction.guildId!;
+    const canalConfigurado = await this.suscripcionService.obtenerCanalSuscripciones(guildId);
+
+    if (!canalConfigurado) return true;
+
+    if (interaction.channelId !== canalConfigurado) {
+      const channelMention = `<#${canalConfigurado}>`;
+      await interaction.reply({
+        content: `❌ Los comandos de suscripción solo pueden usarse en el canal ${channelMention}.`,
+        ephemeral: true,
+      });
+      return false;
+    }
+
+    return true;
+  }
+
+  private async verificarPermisoComando(interaction: ChatInputCommandInteraction, comando: string): Promise<boolean> {
+    const guildId = interaction.guildId!;
+
+    if (interaction.memberPermissions?.has('Administrator')) return true;
+
+    const member = interaction.member;
+    if (!member || !('roles' in member)) return false;
+
+    const roleIds = Array.isArray(member.roles) ? member.roles : member.roles.cache.map((r) => r.id);
+
+    const resultado = await this.suscripcionService.verificarPermiso(guildId, roleIds, comando);
+
+    if (resultado === 'no_config') return true;
+    if (resultado === 'allowed') return true;
+
+    await interaction.reply({
+      content: '❌ No tienes permisos para usar este comando. Contacta a un administrador.',
+      ephemeral: true,
+    });
+    return false;
   }
 }

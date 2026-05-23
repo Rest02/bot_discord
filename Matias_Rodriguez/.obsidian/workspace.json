@@ -232,6 +232,7 @@
   },
   "active": "84bf66497347fc40",
   "lastOpenFiles": [
+    "00-analisis-estructura/RBAC y Restriccion de Canal.md",
     "00-analisis-estructura/Implementacion ModerationModule.md",
     "00-analisis-estructura/Implementacion SuscripcionModule.md",
     "00-analisis-estructura/Guia de Uso - Suscripciones Compartidas.md",
@@ -257,7 +258,6 @@
     "PostgreSQL.md",
     "NestJS.md",
     "Implementar ModerationModule.md",
-    "Implementar ActivityModule.md",
-    "Dockerizar y desplegar.md"
+    "Implementar ActivityModule.md"
   ]
 }

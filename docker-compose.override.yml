@@ -4,6 +4,7 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      - /app/dist
     environment:
       - NODE_ENV=development
       - LOG_LEVEL=debug

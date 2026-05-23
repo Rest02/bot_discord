@@ -85,8 +85,8 @@ export class SuscripcionService {
     }) as unknown as MiembroSuscripcion;
   }
 
-  async agregar(nombreSusc: string, adminDiscordId: string, usuarioDiscordId: string): Promise<MiembroSuscripcion> {
-    const suscripcion = await this.verificarAdmin(nombreSusc, adminDiscordId);
+  async agregar(nombreSusc: string, usuarioDiscordId: string): Promise<MiembroSuscripcion> {
+    const suscripcion = await this.obtenerSuscripcion(nombreSusc);
 
     const miembrosActuales = await this.prisma.miembroSuscripcion.count({
       where: { suscripcionId: suscripcion.id },
@@ -114,8 +114,8 @@ export class SuscripcionService {
     }) as unknown as MiembroSuscripcion;
   }
 
-  async remover(nombreSusc: string, adminDiscordId: string, usuarioDiscordId: string): Promise<void> {
-    const suscripcion = await this.verificarAdmin(nombreSusc, adminDiscordId);
+  async remover(nombreSusc: string, usuarioDiscordId: string): Promise<void> {
+    const suscripcion = await this.obtenerSuscripcion(nombreSusc);
 
     const miembro = await this.prisma.miembroSuscripcion.findUnique({
       where: { suscripcionId_usuarioDiscordId: { suscripcionId: suscripcion.id, usuarioDiscordId } },
@@ -130,11 +130,10 @@ export class SuscripcionService {
 
   async pagar(
     nombreSusc: string,
-    adminDiscordId: string,
     usuarioDiscordId: string,
     meses: number,
   ): Promise<{ montoPagado: number }> {
-    const suscripcion = await this.verificarAdmin(nombreSusc, adminDiscordId);
+    const suscripcion = await this.obtenerSuscripcion(nombreSusc);
 
     const miembro = await this.prisma.miembroSuscripcion.findUnique({
       where: { suscripcionId_usuarioDiscordId: { suscripcionId: suscripcion.id, usuarioDiscordId } },
@@ -280,6 +279,58 @@ export class SuscripcionService {
       throw new NotFoundException(`No existe una suscripción llamada "${nombre}"`);
     }
     return suscripcion as unknown as Suscripcion;
+  }
+
+  async obtenerCanalSuscripciones(guildId: string): Promise<string | null> {
+    const guild = await this.prisma.guild.findUnique({ where: { id: guildId } });
+    return guild?.canalSuscripciones ?? null;
+  }
+
+  async actualizarCanalSuscripciones(guildId: string, channelId: string | null): Promise<void> {
+    await this.prisma.guild.upsert({
+      where: { id: guildId },
+      update: { canalSuscripciones: channelId },
+      create: { id: guildId, name: '', canalSuscripciones: channelId },
+    });
+  }
+
+  async agregarPermiso(guildId: string, comando: string, roleId: string): Promise<void> {
+    await this.prisma.permisoSuscripcion.create({
+      data: { guildId, comando, roleId },
+    });
+  }
+
+  async removerPermiso(guildId: string, comando: string, roleId: string): Promise<void> {
+    await this.prisma.permisoSuscripcion.delete({
+      where: { guildId_comando_roleId: { guildId, comando, roleId } },
+    });
+  }
+
+  async listarPermisos(guildId: string): Promise<{ comando: string; roleId: string }[]> {
+    return this.prisma.permisoSuscripcion.findMany({
+      where: { guildId },
+      select: { comando: true, roleId: true },
+    });
+  }
+
+  async verificarPermiso(guildId: string, roleIds: string[], comando: string): Promise<'allowed' | 'denied' | 'no_config'> {
+    const roles = await this.prisma.permisoSuscripcion.findMany({
+      where: { guildId, comando },
+      select: { roleId: true },
+    });
+
+    if (roles.length === 0) return 'no_config';
+
+    const roleIdSet = new Set(roles.map((r) => r.roleId));
+    return roleIds.some((r) => roleIdSet.has(r)) ? 'allowed' : 'denied';
+  }
+
+  async obtenerGuild(guildId: string) {
+    return this.prisma.guild.upsert({
+      where: { id: guildId },
+      update: {},
+      create: { id: guildId, name: '' },
+    });
   }
 
   async verificarAdmin(nombre: string, discordId: string): Promise<Suscripcion> {
